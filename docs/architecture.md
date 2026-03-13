@@ -4,7 +4,6 @@
 
 本ハンズオンでは、Bastion を踏み台として Private EC2 に接続し、Private EC2 から FSx for NetApp ONTAP を NFS マウントする構成を採用しています。
 
-```text
 Local PC
   ↓ SSH
 Bastion EC2 (Public Subnet)
