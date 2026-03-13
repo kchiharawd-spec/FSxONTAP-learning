@@ -1,0 +1,11 @@
+[
+  { "ParameterKey": "SystemName", "ParameterValue": "fsxontap" },
+  { "ParameterKey": "EnvType", "ParameterValue": "dev" },
+  { "ParameterKey": "VpcCidr", "ParameterValue": "10.0.0.0/16" },
+  { "ParameterKey": "PublicSubnetCidr", "ParameterValue": "10.0.1.0/24" },
+  { "ParameterKey": "PrivateSubnetAzACidr", "ParameterValue": "10.0.11.0/24" },
+  { "ParameterKey": "PrivateSubnetAzCCidr", "ParameterValue": "10.0.12.0/24" },
+  { "ParameterKey": "PublicSubnetAzName", "ParameterValue": "ap-northeast-1a" },
+  { "ParameterKey": "PrivateSubnetAzAName", "ParameterValue": "ap-northeast-1a" },
+  { "ParameterKey": "PrivateSubnetAzCName", "ParameterValue": "ap-northeast-1c" }
+]

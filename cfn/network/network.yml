@@ -1,0 +1,209 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: FSx ONTAP hands-on network stack (Multi-AZ)
+
+Parameters:
+  SystemName:
+    Type: String
+    Description: System name
+
+  EnvType:
+    Type: String
+    Description: Environment type
+    AllowedValues:
+      - dev
+      - stg
+      - prod
+
+  VpcCidr:
+    Type: String
+    Description: VPC CIDR block
+
+  PublicSubnetCidr:
+    Type: String
+    Description: Public subnet CIDR block
+
+  PrivateSubnetAzACidr:
+    Type: String
+    Description: Private subnet CIDR block for AZ-a
+
+  PrivateSubnetAzCCidr:
+    Type: String
+    Description: Private subnet CIDR block for AZ-c
+
+  PublicSubnetAzName:
+    Type: AWS::EC2::AvailabilityZone::Name
+    Description: Availability Zone for public subnet
+
+  PrivateSubnetAzAName:
+    Type: AWS::EC2::AvailabilityZone::Name
+    Description: Availability Zone for private subnet AZ-a
+
+  PrivateSubnetAzCName:
+    Type: AWS::EC2::AvailabilityZone::Name
+    Description: Availability Zone for private subnet AZ-c
+
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCidr
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${SystemName}-${EnvType}-vpc"
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub "${SystemName}-${EnvType}-igw"
+
+  VPCGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Ref PublicSubnetCidr
+      AvailabilityZone: !Ref PublicSubnetAzName
+      Tags:
+        - Key: Name
+          Value: !Sub "${SystemName}-${EnvType}-public-subnet"
+
+  PrivateSubnetAzA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Ref PrivateSubnetAzACidr
+      AvailabilityZone: !Ref PrivateSubnetAzAName
+      Tags:
+        - Key: Name
+          Value: !Sub "${SystemName}-${EnvType}-private-subnet-aza"
+
+  PrivateSubnetAzC:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Ref PrivateSubnetAzCCidr
+      AvailabilityZone: !Ref PrivateSubnetAzCName
+      Tags:
+        - Key: Name
+          Value: !Sub "${SystemName}-${EnvType}-private-subnet-azc"
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub "${SystemName}-${EnvType}-public-rt"
+
+  PublicDefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: VPCGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet
+      RouteTableId: !Ref PublicRouteTable
+
+  EIPForNatGateway:
+    Type: AWS::EC2::EIP
+    DependsOn: VPCGatewayAttachment
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: !Sub "${SystemName}-${EnvType}-nat-eip"
+
+  NatGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt EIPForNatGateway.AllocationId
+      SubnetId: !Ref PublicSubnet
+      Tags:
+        - Key: Name
+          Value: !Sub "${SystemName}-${EnvType}-natgw"
+
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub "${SystemName}-${EnvType}-private-rt"
+        - Key: AmazonFSx
+          Value: ManagedByAmazonFSx
+
+  PrivateDefaultRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway
+
+  PrivateSubnetAzARouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnetAzA
+      RouteTableId: !Ref PrivateRouteTable
+
+  PrivateSubnetAzCRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnetAzC
+      RouteTableId: !Ref PrivateRouteTable
+
+Outputs:
+  VpcId:
+    Description: VPC ID
+    Value: !Ref VPC
+    Export:
+      Name: !Sub "${SystemName}-${EnvType}-vpc-id"
+
+  PublicSubnetId:
+    Description: Public subnet ID
+    Value: !Ref PublicSubnet
+    Export:
+      Name: !Sub "${SystemName}-${EnvType}-public-subnet-id"
+
+  PrivateSubnetAzAId:
+    Description: Private subnet ID in AZ-a
+    Value: !Ref PrivateSubnetAzA
+    Export:
+      Name: !Sub "${SystemName}-${EnvType}-private-subnet-aza-id"
+
+  PrivateSubnetAzCId:
+    Description: Private subnet ID in AZ-c
+    Value: !Ref PrivateSubnetAzC
+    Export:
+      Name: !Sub "${SystemName}-${EnvType}-private-subnet-azc-id"
+
+  PublicRouteTableId:
+    Description: Public route table ID
+    Value: !Ref PublicRouteTable
+    Export:
+      Name: !Sub "${SystemName}-${EnvType}-public-rt-id"
+
+  PrivateRouteTableId:
+    Description: Private route table ID
+    Value: !Ref PrivateRouteTable
+    Export:
+      Name: !Sub "${SystemName}-${EnvType}-private-rt-id"
+
+  NatGatewayId:
+    Description: NAT Gateway ID
+    Value: !Ref NatGateway
+    Export:
+      Name: !Sub "${SystemName}-${EnvType}-natgw-id"
